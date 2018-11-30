@@ -31,6 +31,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <univalue.h>
+#include <rpc/server.h>
+
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -143,7 +146,7 @@ static const unsigned int INVENTORY_BROADCAST_INTERVAL = 5;
  * Limits the impact of low-fee transaction floods.
  */
 static const unsigned int INVENTORY_BROADCAST_MAX =
-    7 * INVENTORY_BROADCAST_INTERVAL;
+        7 * INVENTORY_BROADCAST_INTERVAL;
 /** Average delay between feefilter broadcasts in seconds. */
 static const unsigned int AVG_FEEFILTER_BROADCAST_INTERVAL = 10 * 60;
 /** Maximum feefilter broadcast delay after significant change. */
@@ -275,7 +278,7 @@ public:
     // Do full validation by default
     BlockValidationOptions() : checkPoW(true), checkMerkleRoot(true) {}
     BlockValidationOptions(bool checkPoWIn, bool checkMerkleRootIn)
-        : checkPoW(checkPoWIn), checkMerkleRoot(checkMerkleRootIn) {}
+            : checkPoW(checkPoWIn), checkMerkleRoot(checkMerkleRootIn) {}
 
     bool shouldValidatePoW() const { return checkPoW; }
     bool shouldValidateMerkleRoot() const { return checkMerkleRoot; }
@@ -406,8 +409,8 @@ bool GetTransaction(const Config &config, const TxId &txid, CTransactionRef &tx,
  * Returns true if a new chain tip was set.
  */
 bool ActivateBestChain(
-    const Config &config, CValidationState &state,
-    std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
+        const Config &config, CValidationState &state,
+        std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
 Amount GetBlockSubsidy(int nHeight, const Consensus::Params &consensusParams);
 
 /**
@@ -538,8 +541,8 @@ namespace Consensus {
  * amounts). This does not modify the UTXO set. This does not check scripts and
  * sigs. Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction &tx, CValidationState &state,
-                   const CCoinsViewCache &inputs, int nSpendHeight);
+    bool CheckTxInputs(const CTransaction &tx, CValidationState &state,
+                       const CCoinsViewCache &inputs, int nSpendHeight);
 
 } // namespace Consensus
 
@@ -589,16 +592,16 @@ private:
 
 public:
     CScriptCheck()
-        : amount(0), ptxTo(0), nIn(0), nFlags(0), cacheStore(false),
-          error(SCRIPT_ERR_UNKNOWN_ERROR), txdata() {}
+            : amount(0), ptxTo(0), nIn(0), nFlags(0), cacheStore(false),
+              error(SCRIPT_ERR_UNKNOWN_ERROR), txdata() {}
 
     CScriptCheck(const CScript &scriptPubKeyIn, const Amount amountIn,
                  const CTransaction &txToIn, unsigned int nInIn,
                  uint32_t nFlagsIn, bool cacheIn,
                  const PrecomputedTransactionData &txdataIn)
-        : scriptPubKey(scriptPubKeyIn), amount(amountIn), ptxTo(&txToIn),
-          nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn),
-          error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) {}
+            : scriptPubKey(scriptPubKeyIn), amount(amountIn), ptxTo(&txToIn),
+              nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn),
+              error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) {}
 
     bool operator()();
 
@@ -631,8 +634,8 @@ bool ReadBlockFromDisk(CBlock &block, const CBlockIndex *pindex,
  * transactions are valid, block is a valid size, etc.)
  */
 bool CheckBlock(
-    const Config &Config, const CBlock &block, CValidationState &state,
-    BlockValidationOptions validationOptions = BlockValidationOptions());
+        const Config &Config, const CBlock &block, CValidationState &state,
+        BlockValidationOptions validationOptions = BlockValidationOptions());
 
 /**
  * Context dependent validity checks for non coinbase transactions. This
@@ -661,9 +664,9 @@ bool ContextualCheckTransactionForCurrentBlock(const Config &config,
  * our current best block, with cs_main held)
  */
 bool TestBlockValidity(
-    const Config &config, CValidationState &state, const CBlock &block,
-    CBlockIndex *pindexPrev,
-    BlockValidationOptions validationOptions = BlockValidationOptions());
+        const Config &config, CValidationState &state, const CBlock &block,
+        CBlockIndex *pindexPrev,
+        BlockValidationOptions validationOptions = BlockValidationOptions());
 
 /**
  * When there are blocks in the active chain with missing data, rewind the
@@ -756,5 +759,19 @@ void DumpMempool();
 
 /** Load the mempool from disk. */
 bool LoadMempool(const Config &config);
+
+
+UniValue myBlockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails);
+void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags);
+UniValue myValueFromAmount(const Amount& amount);
+std::string myScriptToAsmStr(const CScript& script, const bool fAttemptSighashDecode=false);
+void myScriptPubKeyToUniv(const CScript& scriptPubKey,UniValue& out, bool fIncludeHex);
+UniValue myGetBlock(const int height,const Config &config);
+std::vector<UniValue> myGetBlockbatch(const int heightStart,const int heightEnd,const Config &config);
+CBlock myGetBlockChecked(const CBlockIndex* pblockindex,const Config &config);
+void myPrintBlockOrderByHeight(int &kafkaHeightrRange,const Config &config);
+
+int post(const std::string& host, const std::string& port, const std::string& page, const std::string& data, std::string& reponse_data);
+
 
 #endif // BITCOIN_VALIDATION_H

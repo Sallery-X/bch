@@ -679,6 +679,85 @@ UniValue getblockhash(const Config &config, const JSONRPCRequest &request) {
     return pblockindex->GetBlockHash().GetHex();
 }
 
+static UniValue sendblock(const Config &config,const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "sendblock height\n"
+            "\nReturns data of block in best-block-chain at height provided.\n"
+            "\nArguments:\n"
+            "1. height         (numeric, required) The height index\n"
+            "\nResult:\n"
+            "\"hash\"         (string) The block hash\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendblock", "1000")
+            + HelpExampleRpc("sendblock", "1000")
+        );
+
+    LOCK(cs_main);
+
+    int nHeight = request.params[0].get_int();
+    if (nHeight < 0 || nHeight > chainActive.Height())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+    CBlockIndex* pblockindex = chainActive[nHeight];
+    UniValue result(UniValue::VOBJ);
+    const CBlock block = myGetBlockChecked(pblockindex,config);
+	result = myBlockToJSON(block,pblockindex,true);
+    if (gArgs.IsArgSet("-kafka")) {
+        std::string reponse_data;
+        int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + result.write() + "}]}", reponse_data);
+        if (ret != 0) {
+            std::cout << "error_code:" << ret << std::endl;
+            std::cout << "error_message:" << reponse_data << std::endl;
+        }
+    }
+	return result;
+}
+
+static UniValue sendblockbatch(const Config &config,const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "getblockjson height\n"
+            "\nReturns data of block in best-block-chain at height provided.\n"
+            "\nArguments:\n"
+            "1. height         (numeric, required) The height index\n"
+            "\nResult:\n"
+            "\"hash\"         (string) The block hash\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockhash", "1000")
+            + HelpExampleRpc("getblockhash", "1000")
+        );
+
+    LOCK(cs_main);
+
+    int startHeight = request.params[0].get_int();
+    int endHeight = request.params[1].get_int();
+    UniValue result(UniValue::VARR);
+	if (startHeight < 0 || endHeight > chainActive.Height() || startHeight > endHeight || endHeight - startHeight > 1000){
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+	}
+	for(int i = startHeight; i <= endHeight;i++){
+		CBlockIndex* pblockindex = chainActive[i];
+		const CBlock block = myGetBlockChecked(pblockindex,config);
+        UniValue r(UniValue::VOBJ);
+        r = myBlockToJSON(block,pblockindex,true);
+		result.push_back(r);
+        if (gArgs.IsArgSet("-kafka")) {
+            std::string reponse_data;
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + r.write() + "}]}", reponse_data);
+            if (ret != 0) {
+                std::cout << "error_code:" << ret << std::endl;
+                std::cout << "error_message:" << reponse_data << std::endl;
+            }
+        }
+	}
+	return result;
+}
+
+
+
 UniValue getblockheader(const Config &config, const JSONRPCRequest &request) {
     if (request.fHelp || request.params.size() < 1 ||
         request.params.size() > 2) {
@@ -1684,6 +1763,8 @@ static const ContextFreeRPCCommand commands[] = {
     { "blockchain",         "pruneblockchain",        pruneblockchain,        true,  {"height"} },
     { "blockchain",         "verifychain",            verifychain,            true,  {"checklevel","nblocks"} },
     { "blockchain",         "preciousblock",          preciousblock,          true,  {"blockhash"} },
+    { "blockchain",         "sendblock",              sendblock,              true,  {"height"} },
+    { "blockchain",         "sendblockbatch",         sendblockbatch,         true,  {"startheight", "endheight"} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        invalidateblock,        true,  {"blockhash"} },

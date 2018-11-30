@@ -899,6 +899,14 @@ std::string HelpMessage(HelpMessageMode mode) {
             strprintf("Timeout during HTTP requests (default: %d)",
                       DEFAULT_HTTP_SERVER_TIMEOUT));
     }
+	strUsage += HelpMessageOpt(
+        "-kafka", _("Bitcoin support kafka"));
+	strUsage += HelpMessageOpt(
+        "-kafkaproxyhost=<ip>",_("afka proxy host"));
+	strUsage += HelpMessageOpt(
+        "-kafkaproxyport=<port>",_("Kafka proxy port"));
+	strUsage += HelpMessageOpt(
+        "-kafkatopic=<name>",("Kafka topic name"));
 
     return strUsage;
 }
@@ -1337,6 +1345,22 @@ bool AppInitParameterInteraction(Config &config) {
     if (!config.SetBlockPriorityPercentage(blkprio)) {
         return InitError(_("Block priority percentage has to belong to the "
                            "[0..100] interval."));
+    }
+
+	//-kafkabroker and -kafkatopic can not be empty when kafka enable
+    if (gArgs.IsArgSet("-kafka")) {
+        size_t kafkaProxyHost = gArgs.GetArgs("-kafkaproxyhost").size();
+        size_t kafkaProxyPort = gArgs.GetArgs("-kafkaproxyport").size();
+        size_t kafkaTopic = gArgs.GetArgs("-kafkatopic").size();
+        if (kafkaProxyHost == 0) {
+            return InitError("Kafka proxy host cannot be empty when kafka enable.");
+        }
+        if (kafkaProxyPort == 0) {
+            return InitError("Kafka proxy port cannot be empty when kafka enable.");
+        }
+        if (kafkaTopic == 0) {
+            return InitError("Kafka topic cannot be empty when kafka enable.");
+        }        
     }
 
     // Make sure enough file descriptors are available
