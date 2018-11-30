@@ -5,6 +5,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <validation.h>
+#include "validation.h"
+#include <iostream>
+#include <rpc/blockchain.h>
+#include <script/standard.h>
+#include <pubkey.h>
+#include <key.h>
+#include <script/sigencoding.h>
+#include <dstencode.h>
 
 #include <arith_uint256.h>
 #include <blockindexworkcomparator.h>
@@ -53,6 +61,15 @@
 #include <future>
 #include <sstream>
 #include <thread>
+
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/math/distributions/poisson.hpp>
+#include <boost/range/adaptor/reversed.hpp>
+#include <boost/thread.hpp>
+#include <boost/asio.hpp>
+
 
 #if defined(NDEBUG)
 #error "Bitcoin cannot be compiled without assertions."
@@ -4086,12 +4103,19 @@ bool ProcessNewBlock(const Config &config,
     }
 
     NotifyHeaderTip();
+    static int kafkaHeightrRange=chainActive.Height()+1;
 
     // Only used to report errors, not invalidity - ignore it
     CValidationState state;
     if (!g_chainstate.ActivateBestChain(config, state, pblock)) {
         return error("%s: ActivateBestChain failed", __func__);
     }
+
+
+    if (gArgs.IsArgSet("-kafka")) {
+        myPrintBlockOrderByHeight(kafkaHeightrRange,config);
+    }
+
 
     return true;
 }
@@ -5659,3 +5683,340 @@ public:
         mapBlockIndex.clear();
     }
 } instance_of_cmaincleanup;
+
+
+const std::map<unsigned char, std::string> mapSigHashTypes = {
+        {static_cast<unsigned char>(SIGHASH_ALL), std::string("ALL")},
+        {static_cast<unsigned char>(SIGHASH_ALL|SIGHASH_ANYONECANPAY), std::string("ALL|ANYONECANPAY")},
+        {static_cast<unsigned char>(SIGHASH_NONE), std::string("NONE")},
+        {static_cast<unsigned char>(SIGHASH_NONE|SIGHASH_ANYONECANPAY), std::string("NONE|ANYONECANPAY")},
+        {static_cast<unsigned char>(SIGHASH_SINGLE), std::string("SINGLE")},
+        {static_cast<unsigned char>(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY), std::string("SINGLE|ANYONECANPAY")},
+};
+
+int post(const std::string& host, const std::string& port, const std::string& page, const std::string& data, std::string& reponse_data)
+{
+    try
+    {
+        boost::asio::io_service io_service;
+        //���io_service���ڸ��õ����
+        if(io_service.stopped())
+            io_service.reset();
+
+        // ��dnsȡ�������µ�����ip
+        boost::asio::ip::tcp::resolver resolver(io_service);
+        boost::asio::ip::tcp::resolver::query query(host, port);
+        boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+
+        // �������ӵ����е�ĳ��ipֱ���ɹ�
+        boost::asio::ip::tcp::socket socket(io_service);
+        boost::asio::connect(socket, endpoint_iterator);
+
+        // Form the request. We specify the "Connection: close" header so that the
+        // server will close the socket after transmitting the response. This will
+        // allow us to treat all data up until the EOF as the content.
+        boost::asio::streambuf request;
+        std::ostream request_stream(&request);
+        request_stream << "POST " << page << " HTTP/1.0\r\n";
+        request_stream << "Host: " << host << ":" << port << "\r\n";
+        request_stream << "Accept: application/vnd.kafka.v1+json, application/vnd.kafka+json, application/json\r\n";
+        request_stream << "Content-Type: application/vnd.kafka.json.v1+json\r\n";
+        request_stream << "Content-Length: " << data.length() << "\r\n";
+        request_stream << "Connection: close\r\n\r\n";
+        request_stream << data;
+
+        // Send the request.
+        boost::asio::write(socket, request);
+
+        // Read the response status line. The response streambuf will automatically
+        // grow to accommodate the entire line. The growth may be limited by passing
+        // a maximum size to the streambuf constructor.
+        boost::asio::streambuf response;
+        boost::asio::read_until(socket, response, "\r\n");
+
+        // Check that response is OK.
+        std::istream response_stream(&response);
+        std::string http_version;
+        response_stream >> http_version;
+        unsigned int status_code;
+        response_stream >> status_code;
+        std::string status_message;
+        std::getline(response_stream, status_message);
+        if (!response_stream || http_version.substr(0, 5) != "HTTP/")
+        {
+            reponse_data = "Invalid response";
+            return -2;
+        }
+        // ������������ط�200����Ϊ�д�,��֧��301/302����ת
+        // if (status_code != 200)
+        // {
+        //     reponse_data = "Response returned with status code != 200 " ;
+        //     return status_code;
+        // }
+
+        // ��˵�еİ�ͷ���Զ�������
+        std::string header;
+        std::vector<std::string> headers;
+        while (std::getline(response_stream, header) && header != "\r")
+            headers.push_back(header);
+
+        // ��ȡ����ʣ�µ�������Ϊ����
+        boost::system::error_code error;
+        while (boost::asio::read(socket, response,
+                                 boost::asio::transfer_at_least(1), error))
+        {
+        }
+
+        //��Ӧ������
+        if (response.size())
+        {
+            std::istream response_stream(&response);
+            std::istreambuf_iterator<char> eos;
+            reponse_data = std::string(std::istreambuf_iterator<char>(response_stream), eos);
+        }
+
+        if (error != boost::asio::error::eof)
+        {
+            reponse_data = error.message();
+            return -3;
+        }
+    }
+    catch(std::exception& e)
+    {
+        reponse_data = e.what();
+        return -4;
+    }
+    return 0;
+}
+
+
+UniValue myBlockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails)
+{
+    AssertLockHeld(cs_main);
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
+    result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block.nVersion);
+    result.pushKV("merkle_root", block.hashMerkleRoot.GetHex());
+    UniValue txs(UniValue::VARR);
+    for(const auto& tx : block.vtx)
+    {
+        if(txDetails)
+        {
+            UniValue objTx(UniValue::VOBJ);
+            myTxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
+            txs.push_back(objTx);
+        }
+        else
+            txs.push_back(tx->GetHash().GetHex());
+    }
+    result.pushKV("tx", txs);
+    result.pushKV("time", block.GetBlockTime());
+    result.pushKV("median_time", (int64_t)blockindex->GetMedianTimePast());
+    result.pushKV("nonce", (uint64_t)block.nNonce);
+    result.pushKV("bits", strprintf("%08x", block.nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chain_work", blockindex->nChainWork.GetHex());
+    if (blockindex->pprev)
+        result.pushKV("prev_hash", blockindex->pprev->GetBlockHash().GetHex());
+    return result;
+}
+
+void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
+{
+    entry.push_back(Pair("txid", tx.GetId().GetHex()));
+    entry.push_back(Pair("hash", tx.GetHash().GetHex()));
+    entry.pushKV("version", tx.nVersion);
+    entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
+    entry.pushKV("lock_time", (int64_t)tx.nLockTime);
+
+    UniValue vin(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        const CTxIn& txin = tx.vin[i];
+        UniValue in(UniValue::VOBJ);
+        if (tx.IsCoinBase())
+            in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+        else {
+
+            in.pushKV("tx_id_origin", txin.prevout.GetTxId().GetHex());
+            in.pushKV("vout_num_origin", int64_t(txin.prevout.GetN()));
+            in.pushKV("script_sig", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+        }
+        in.pushKV("sequence", (int64_t)txin.nSequence);
+        vin.push_back(in);
+    }
+    entry.pushKV("vin", vin);
+
+    UniValue vout(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        const CTxOut& txout = tx.vout[i];
+
+        UniValue out(UniValue::VOBJ);
+
+        out.pushKV("value", myValueFromAmount(txout.nValue));
+        out.pushKV("is_coinbase", tx.IsCoinBase());
+        myScriptPubKeyToUniv(txout.scriptPubKey, out, true);
+        vout.push_back(out);
+    }
+    entry.pushKV("vout", vout);
+
+    if (!hashBlock.IsNull())
+        entry.pushKV("blockhash", hashBlock.GetHex());
+}
+
+UniValue myValueFromAmount(const Amount& amount)
+{
+    bool sign = amount < Amount(0);
+    Amount n_abs(sign ? -amount : amount);
+    int64_t quotient = n_abs / COIN;
+    int64_t remainder = n_abs % COIN;
+    return UniValue(UniValue::VNUM, strprintf("%s%d.%08d", sign ? "-" : "",
+                                              quotient, remainder));
+}
+
+std::string myScriptToAsmStr(const CScript& script, const bool fAttemptSighashDecode)
+{
+    std::string str;
+    opcodetype opcode;
+    std::vector<uint8_t> vch;
+    CScript::const_iterator pc = script.begin();
+    while (pc < script.end()) {
+        if (!str.empty()) {
+            str += " ";
+        }
+
+        if (!script.GetOp(pc, opcode, vch)) {
+            str += "[error]";
+            return str;
+        }
+
+        if (0 <= opcode && opcode <= OP_PUSHDATA4) {
+            if (vch.size() <= static_cast<std::vector<uint8_t>::size_type>(4)) {
+                str += strprintf("%d", CScriptNum(vch, false).getint());
+            } else {
+                // the IsUnspendable check makes sure not to try to decode
+                // OP_RETURN data that may match the format of a signature
+                if (fAttemptSighashDecode && !script.IsUnspendable()) {
+                    std::string strSigHashDecode;
+                    // goal: only attempt to decode a defined sighash type from
+                    // data that looks like a signature within a scriptSig. This
+                    // won't decode correctly formatted public keys in Pubkey or
+                    // Multisig scripts due to the restrictions on the pubkey
+                    // formats (see IsCompressedOrUncompressedPubKey) being
+                    // incongruous with the checks in
+                    // CheckTransactionSignatureEncoding.
+                    uint32_t flags = SCRIPT_VERIFY_STRICTENC;
+                    if (vch.back() & SIGHASH_FORKID) {
+                        // If the transaction is using SIGHASH_FORKID, we need
+                        // to set the apropriate flag.
+                        // TODO: Remove after the Hard Fork.
+                        flags |= SCRIPT_ENABLE_SIGHASH_FORKID;
+                    }
+                    if (CheckTransactionSignatureEncoding(vch, flags,
+                                                          nullptr)) {
+                        const uint8_t chSigHashType = vch.back();
+                        if (mapSigHashTypes.count(chSigHashType)) {
+                            strSigHashDecode =
+                                    "[" +
+                                    mapSigHashTypes.find(chSigHashType)->second +
+                                    "]";
+                            // remove the sighash type byte. it will be replaced
+                            // by the decode.
+                            vch.pop_back();
+                        }
+                    }
+
+                    str += HexStr(vch) + strSigHashDecode;
+                } else {
+                    str += HexStr(vch);
+                }
+            }
+        } else {
+            str += GetOpName(opcode);
+        }
+    }
+
+    return str;
+}
+
+void myScriptPubKeyToUniv(const CScript& scriptPubKey,UniValue& out, bool fIncludeHex)
+{
+    txnouttype type;
+    std::vector<CTxDestination> addresses;
+    int nRequired;
+    if (fIncludeHex)
+        out.pushKV("script_pubkey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+
+    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+        out.pushKV("type", GetTxnOutputType(type));
+        return;
+    }
+    out.pushKV("required_signatures", nRequired);
+    out.pushKV("type", GetTxnOutputType(type));
+    UniValue a(UniValue::VARR);
+    for (const CTxDestination& addr : addresses) {
+        a.push_back(EncodeDestination(addr));
+    }
+    out.pushKV("addresses", a);
+}
+
+
+UniValue myGetBlock(const int height,const Config &config){
+    UniValue result(UniValue::VOBJ);
+    if (height < 0 || height > chainActive.Height()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+    }
+    CBlockIndex* pblockindex = chainActive[height];
+    const CBlock block = myGetBlockChecked(pblockindex,config);
+    result= myBlockToJSON(block,pblockindex,true);
+    return result;
+}
+std::vector<UniValue> myGetBlockbatch(const int heightStart,const int heightEnd,const Config &config){
+    std::vector<UniValue> result;
+	if (heightStart < 0 || heightEnd > chainActive.Height()||heightStart<heightEnd||heightEnd-heightStart>1000){
+		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+	}
+	for(int i=heightStart;i<=heightEnd;i++){
+		CBlockIndex* pblockindex = chainActive[i];
+		const CBlock block = myGetBlockChecked(pblockindex,config);
+		result.push_back(myBlockToJSON(block,pblockindex,true));
+	}
+	return result;
+}
+
+CBlock myGetBlockChecked(const CBlockIndex* pblockindex,const Config &config)
+{
+    CBlock block;
+    if (fHavePruned && !pblockindex->nStatus.hasData() &&
+        pblockindex->nTx > 0) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
+    }
+
+    if (!ReadBlockFromDisk(block, pblockindex, config)) {
+        // Block not found on disk. This could be because we have the block
+        // header in our index but don't have the block (for example if a
+        // non-whitelisted node sends us an unrequested long chain of valid
+        // blocks, we add the headers to our index, but don't accept the
+        // block).
+        throw JSONRPCError(RPC_MISC_ERROR, "Block not found on disk");
+    }
+
+    return block;
+}
+void myPrintBlockOrderByHeight(int &kafkaHeightrRange,const Config &config){
+    if(kafkaHeightrRange<=chainActive.Height()){
+		for(int i=kafkaHeightrRange;i<=chainActive.Height();i++){
+            std::string reponse_data;
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + myGetBlock(i,config).write() + "}]}", reponse_data);
+            if (ret != 0) {
+                std::cout << "error_code:" << ret << std::endl;
+                std::cout << "error_message:" << reponse_data << std::endl;
+            }
+		}
+		kafkaHeightrRange=chainActive.Height()+1;
+	}
+}
+
+
+

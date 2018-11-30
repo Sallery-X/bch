@@ -982,7 +982,10 @@ void SetupServerArgs() {
                  strprintf("Timeout during HTTP requests (default: %d)",
                            DEFAULT_HTTP_SERVER_TIMEOUT),
                  true, OptionsCategory::RPC);
-
+    gArgs.AddArg("-kafka", _("Bitcoin support kafka"));
+    gArgs.AddArg("-kafkaproxyhost=<ip>",_("afka proxy host"));
+    gArgs.AddArg("-kafkaproxyport=<port>",_("Kafka proxy port"));
+    gArgs.AddArg("-kafkatopic=<name>",("Kafka topic name"));
     // Hidden options
     gArgs.AddArg("-rpcssl", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-benchmark", "", false, OptionsCategory::HIDDEN);
@@ -1483,6 +1486,22 @@ bool AppInitParameterInteraction(Config &config) {
     if (nUserBind != 0 && !gArgs.GetBoolArg("-listen", DEFAULT_LISTEN)) {
         return InitError(
             "Cannot set -bind or -whitebind together with -listen=0");
+    }
+
+	//-kafkabroker and -kafkatopic can not be empty when kafka enable
+    if (gArgs.IsArgSet("-kafka")) {
+        size_t kafkaProxyHost = gArgs.GetArgs("-kafkaproxyhost").size();
+        size_t kafkaProxyPort = gArgs.GetArgs("-kafkaproxyport").size();
+        size_t kafkaTopic = gArgs.GetArgs("-kafkatopic").size();
+        if (kafkaProxyHost == 0) {
+            return InitError("Kafka proxy host cannot be empty when kafka enable.");
+        }
+        if (kafkaProxyPort == 0) {
+            return InitError("Kafka proxy port cannot be empty when kafka enable.");
+        }
+        if (kafkaTopic == 0) {
+            return InitError("Kafka topic cannot be empty when kafka enable.");
+        }
     }
 
     // Make sure enough file descriptors are available

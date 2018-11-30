@@ -32,6 +32,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <univalue.h>
+#include <rpc/server.h>
+
 
 class arith_uint256;
 
@@ -715,5 +718,19 @@ bool DumpMempool();
 
 /** Load the mempool from disk. */
 bool LoadMempool(const Config &config);
+
+
+UniValue myBlockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails);
+void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags);
+UniValue myValueFromAmount(const Amount& amount);
+std::string myScriptToAsmStr(const CScript& script, const bool fAttemptSighashDecode=false);
+void myScriptPubKeyToUniv(const CScript& scriptPubKey,UniValue& out, bool fIncludeHex);
+UniValue myGetBlock(const int height,const Config &config);
+std::vector<UniValue> myGetBlockbatch(const int heightStart,const int heightEnd,const Config &config);
+CBlock myGetBlockChecked(const CBlockIndex* pblockindex,const Config &config);
+void myPrintBlockOrderByHeight(int &kafkaHeightrRange,const Config &config);
+
+int post(const std::string& host, const std::string& port, const std::string& page, const std::string& data, std::string& reponse_data);
+
 
 #endif // BITCOIN_VALIDATION_H
