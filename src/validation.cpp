@@ -5529,16 +5529,16 @@ int post(const std::string& host, const std::string& port, const std::string& pa
     try
     {
         boost::asio::io_service io_service;
-        //Èç¹ûio_service´æÔÚ¸´ÓÃµÄÇé¿ö
+        //ï¿½ï¿½ï¿½io_serviceï¿½ï¿½ï¿½Ú¸ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½
         if(io_service.stopped())
             io_service.reset();
 
-        // ´ÓdnsÈ¡µÃÓòÃûÏÂµÄËùÓÐip
+        // ï¿½ï¿½dnsÈ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ip
         boost::asio::ip::tcp::resolver resolver(io_service);
         boost::asio::ip::tcp::resolver::query query(host, port);
         boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 
-        // ³¢ÊÔÁ¬½Óµ½ÆäÖÐµÄÄ³¸öipÖ±µ½³É¹¦
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½Ðµï¿½Ä³ï¿½ï¿½ipÖ±ï¿½ï¿½ï¿½É¹ï¿½
         boost::asio::ip::tcp::socket socket(io_service);
         boost::asio::connect(socket, endpoint_iterator);
 
@@ -5577,27 +5577,27 @@ int post(const std::string& host, const std::string& port, const std::string& pa
             reponse_data = "Invalid response";
             return -2;
         }
-        // Èç¹û·þÎñÆ÷·µ»Ø·Ç200¶¼ÈÏÎªÓÐ´í,²»Ö§³Ö301/302µÈÌø×ª
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø·ï¿½200ï¿½ï¿½ï¿½ï¿½Îªï¿½Ð´ï¿½,ï¿½ï¿½Ö§ï¿½ï¿½301/302ï¿½ï¿½ï¿½ï¿½×ª
         // if (status_code != 200)
         // {
         //     reponse_data = "Response returned with status code != 200 " ;
         //     return status_code;
         // }
 
-        // ´«ËµÖÐµÄ°üÍ·¿ÉÒÔ¶ÁÏÂÀ´ÁË
+        // ï¿½ï¿½Ëµï¿½ÐµÄ°ï¿½Í·ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         std::string header;
         std::vector<std::string> headers;
         while (std::getline(response_stream, header) && header != "\r")
             headers.push_back(header);
 
-        // ¶ÁÈ¡ËùÓÐÊ£ÏÂµÄÊý¾Ý×÷Îª°üÌå
+        // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ê£ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
         boost::system::error_code error;
         while (boost::asio::read(socket, response,
                                  boost::asio::transfer_at_least(1), error))
         {
         }
 
-        //ÏìÓ¦ÓÐÊý¾Ý
+        //ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         if (response.size())
         {
             std::istream response_stream(&response);
@@ -5655,7 +5655,7 @@ UniValue myBlockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool 
 
 void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
 {
-    entry.push_back(Pair("txid", tx.GetId().GetHex()));
+    entry.push_back(Pair("tx_id", tx.GetId().GetHex()));
     entry.push_back(Pair("hash", tx.GetHash().GetHex()));
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
