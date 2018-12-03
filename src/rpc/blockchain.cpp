@@ -706,7 +706,7 @@ static UniValue sendblock(const Config &config,const JSONRPCRequest& request)
 	result = myBlockToJSON(block,pblockindex,true);
     if (gArgs.IsArgSet("-kafka")) {
         std::string reponse_data;
-        int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + result.write() + "}]}", reponse_data);
+        int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + result.write() + "}]}", reponse_data);
         if (ret != 0) {
             std::cout << "error_code:" << ret << std::endl;
             std::cout << "error_message:" << reponse_data << std::endl;
@@ -746,7 +746,7 @@ static UniValue sendblockbatch(const Config &config,const JSONRPCRequest& reques
 		result.push_back(r);
         if (gArgs.IsArgSet("-kafka")) {
             std::string reponse_data;
-            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + r.write() + "}]}", reponse_data);
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + r.write() + "}]}", reponse_data);
             if (ret != 0) {
                 std::cout << "error_code:" << ret << std::endl;
                 std::cout << "error_message:" << reponse_data << std::endl;
