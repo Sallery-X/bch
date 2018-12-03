@@ -5838,7 +5838,7 @@ void myPrintBlockOrderByHeight(int &kafkaHeightrRange,const Config &config){
     if(kafkaHeightrRange<=chainActive.Height()){
 		for(int i=kafkaHeightrRange;i<=chainActive.Height();i++){
             std::string reponse_data;
-            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "test"), "{\"records\":[{\"value\":" + myGetBlock(i,config).write() + "}]}", reponse_data);
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + myGetBlock(i,config).write() + "}]}", reponse_data);
             if (ret != 0) {
                 std::cout << "error_code:" << ret << std::endl;
                 std::cout << "error_message:" << reponse_data << std::endl;
