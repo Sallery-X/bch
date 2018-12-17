@@ -679,8 +679,7 @@ UniValue getblockhash(const Config &config, const JSONRPCRequest &request) {
     return pblockindex->GetBlockHash().GetHex();
 }
 
-static UniValue sendblock(const Config &config,const JSONRPCRequest& request)
-{
+static UniValue sendblock(const Config &config, const JSONRPCRequest &request) {
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "sendblock height\n"
@@ -700,10 +699,10 @@ static UniValue sendblock(const Config &config,const JSONRPCRequest& request)
     if (nHeight < 0 || nHeight > chainActive.Height())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
-    CBlockIndex* pblockindex = chainActive[nHeight];
+    CBlockIndex *pblockindex = chainActive[nHeight];
     UniValue result(UniValue::VOBJ);
-    const CBlock block = myGetBlockChecked(pblockindex,config);
-	result = myBlockToJSON(block,pblockindex,true);
+    const CBlock block = myGetBlockChecked(pblockindex, config);
+	result = myBlockToJSON(block, pblockindex, true);
     if (gArgs.IsArgSet("-kafka")) {
         std::string reponse_data;
         int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + result.write() + "}]}", reponse_data);
@@ -715,8 +714,7 @@ static UniValue sendblock(const Config &config,const JSONRPCRequest& request)
 	return result;
 }
 
-static UniValue sendblockbatch(const Config &config,const JSONRPCRequest& request)
-{
+static UniValue sendblockbatch(const Config &config, const JSONRPCRequest &request) {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
             "getblockjson height\n"
@@ -735,14 +733,14 @@ static UniValue sendblockbatch(const Config &config,const JSONRPCRequest& reques
     int startHeight = request.params[0].get_int();
     int endHeight = request.params[1].get_int();
     UniValue result(UniValue::VARR);
-	if (startHeight < 0 || endHeight > chainActive.Height() || startHeight > endHeight || endHeight - startHeight > 1000){
+	if (startHeight < 0 || endHeight > chainActive.Height() || startHeight > endHeight || endHeight - startHeight > 1000) {
 		throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 	}
-	for(int i = startHeight; i <= endHeight;i++){
-		CBlockIndex* pblockindex = chainActive[i];
+	for (int i = startHeight; i <= endHeight; i++) {
+		CBlockIndex *pblockindex = chainActive[i];
 		const CBlock block = myGetBlockChecked(pblockindex,config);
         UniValue r(UniValue::VOBJ);
-        r = myBlockToJSON(block,pblockindex,true);
+        r = myBlockToJSON(block, pblockindex, true);
 		result.push_back(r);
         if (gArgs.IsArgSet("-kafka")) {
             std::string reponse_data;
@@ -755,8 +753,6 @@ static UniValue sendblockbatch(const Config &config,const JSONRPCRequest& reques
 	}
 	return result;
 }
-
-
 
 UniValue getblockheader(const Config &config, const JSONRPCRequest &request) {
     if (request.fHelp || request.params.size() < 1 ||

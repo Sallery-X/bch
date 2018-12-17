@@ -899,13 +899,13 @@ std::string HelpMessage(HelpMessageMode mode) {
             strprintf("Timeout during HTTP requests (default: %d)",
                       DEFAULT_HTTP_SERVER_TIMEOUT));
     }
-	strUsage += HelpMessageOpt(
+    strUsage += HelpMessageOpt(
         "-kafka", _("Bitcoin support kafka"));
-	strUsage += HelpMessageOpt(
+    strUsage += HelpMessageOpt(
         "-kafkaproxyhost=<ip>",_("afka proxy host"));
-	strUsage += HelpMessageOpt(
+    strUsage += HelpMessageOpt(
         "-kafkaproxyport=<port>",_("Kafka proxy port"));
-	strUsage += HelpMessageOpt(
+    strUsage += HelpMessageOpt(
         "-kafkatopic=<name>",("Kafka topic name"));
 
     return strUsage;
@@ -1347,7 +1347,7 @@ bool AppInitParameterInteraction(Config &config) {
                            "[0..100] interval."));
     }
 
-	//-kafkabroker and -kafkatopic can not be empty when kafka enable
+	// -kafkabroker and -kafkatopic can not be empty when kafka enable
     if (gArgs.IsArgSet("-kafka")) {
         size_t kafkaProxyHost = gArgs.GetArgs("-kafkaproxyhost").size();
         size_t kafkaProxyPort = gArgs.GetArgs("-kafkaproxyport").size();
@@ -1360,7 +1360,7 @@ bool AppInitParameterInteraction(Config &config) {
         }
         if (kafkaTopic == 0) {
             return InitError("Kafka topic cannot be empty when kafka enable.");
-        }        
+        }
     }
 
     // Make sure enough file descriptors are available
