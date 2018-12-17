@@ -704,11 +704,11 @@ static UniValue sendblock(const Config &config, const JSONRPCRequest &request) {
     const CBlock block = myGetBlockChecked(pblockindex, config);
 	result = myBlockToJSON(block, pblockindex, true);
     if (gArgs.IsArgSet("-kafka")) {
-        std::string reponse_data;
-        int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + result.write() + "}]}", reponse_data);
+        std::string response_data;
+        int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + result.write() + "}]}", response_data);
         if (ret != 0) {
             std::cout << "error_code:" << ret << std::endl;
-            std::cout << "error_message:" << reponse_data << std::endl;
+            std::cout << "error_message:" << response_data << std::endl;
         }
     }
 	return result;
@@ -743,11 +743,11 @@ static UniValue sendblockbatch(const Config &config, const JSONRPCRequest &reque
         r = myBlockToJSON(block, pblockindex, true);
 		result.push_back(r);
         if (gArgs.IsArgSet("-kafka")) {
-            std::string reponse_data;
-            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + r.write() + "}]}", reponse_data);
+            std::string response_data;
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + r.write() + "}]}", response_data);
             if (ret != 0) {
                 std::cout << "error_code:" << ret << std::endl;
-                std::cout << "error_message:" << reponse_data << std::endl;
+                std::cout << "error_message:" << response_data << std::endl;
             }
         }
 	}
