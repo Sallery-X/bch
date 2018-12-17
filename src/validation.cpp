@@ -5523,7 +5523,7 @@ const std::map<unsigned char, std::string> mapSigHashTypes = {
     {static_cast<unsigned char>(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY), std::string("SINGLE|ANYONECANPAY")},
 };
 
-int post(const std::string &host, const std::string &port, const std::string &page, const std::string &data, std::string &reponse_data) {
+int post(const std::string &host, const std::string &port, const std::string &page, const std::string &data, std::string &response_data) {
     try {
         boost::asio::io_service io_service;
         if(io_service.stopped())
@@ -5567,12 +5567,12 @@ int post(const std::string &host, const std::string &port, const std::string &pa
         std::string status_message;
         std::getline(response_stream, status_message);
         if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
-            reponse_data = "Invalid response";
+            response_data = "Invalid response";
             return -2;
         }
         // if (status_code != 200)
         // {
-        //     reponse_data = "Response returned with status code != 200 " ;
+        //     response_data = "Response returned with status code != 200 " ;
         //     return status_code;
         // }
 
@@ -5587,16 +5587,16 @@ int post(const std::string &host, const std::string &port, const std::string &pa
         if (response.size()) {
             std::istream response_stream(&response);
             std::istreambuf_iterator<char> eos;
-            reponse_data = std::string(std::istreambuf_iterator<char>(response_stream), eos);
+            response_data = std::string(std::istreambuf_iterator<char>(response_stream), eos);
         }
 
         if (error != boost::asio::error::eof) {
-            reponse_data = error.message();
+            response_data = error.message();
             return -3;
         }
     }
     catch(std::exception& e) {
-        reponse_data = e.what();
+        response_data = e.what();
         return -4;
     }
     return 0;
@@ -5810,7 +5810,7 @@ void myPrintBlockOrderByHeight(int &kafkaHeightRange, const Config &config) {
             int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + myGetBlock(i, config).write() + "}]}", response_data);
             if (ret != 0) {
                 std::cout << "error_code:" << ret << std::endl;
-                std::cout << "error_message:" << reponse_data << std::endl;
+                std::cout << "error_message:" << response_data << std::endl;
             }
 		}
 		kafkaHeightRange = chainActive.Height()+1;
