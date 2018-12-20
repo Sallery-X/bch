@@ -5542,7 +5542,7 @@ int post(const std::string &host, const std::string &port, const std::string &pa
         boost::asio::streambuf request;
         std::ostream request_stream(&request);
         request_stream << "POST " << page << " HTTP/1.0\r\n";
-        request_stream << "Host: " << host << ":" << port << "\r\n";
+        request_stream << "Host: " << host << "\r\n";
         request_stream << "Accept: application/vnd.kafka.v1+json, application/vnd.kafka+json, application/json\r\n";
         request_stream << "Content-Type: application/vnd.kafka.json.v1+json\r\n";
         request_stream << "Content-Length: " << data.length() << "\r\n";
