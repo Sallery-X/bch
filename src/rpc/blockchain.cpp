@@ -714,7 +714,7 @@ static UniValue sendblock(const Config &config, const JSONRPCRequest &request) {
 	return result;
 }
 
-static UniValue sendblockbatch(const Config &config, const JSONRPCRequest &request) {
+static UniValue sendbatchblock(const Config &config, const JSONRPCRequest &request) {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
             "getblockjson height\n"
@@ -1760,7 +1760,7 @@ static const ContextFreeRPCCommand commands[] = {
     { "blockchain",         "verifychain",            verifychain,            true,  {"checklevel","nblocks"} },
     { "blockchain",         "preciousblock",          preciousblock,          true,  {"blockhash"} },
     { "blockchain",         "sendblock",              sendblock,              true,  {"height"} },
-    { "blockchain",         "sendblockbatch",         sendblockbatch,         true,  {"startheight", "endheight"} },
+    { "blockchain",         "sendbatchblock",         sendbatchblock,         true,  {"startheight", "endheight"} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        invalidateblock,        true,  {"blockhash"} },
