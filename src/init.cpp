@@ -982,10 +982,10 @@ void SetupServerArgs() {
                  strprintf("Timeout during HTTP requests (default: %d)",
                            DEFAULT_HTTP_SERVER_TIMEOUT),
                  true, OptionsCategory::RPC);
-    gArgs.AddArg("-kafka", _("Bitcoin support kafka"));
-    gArgs.AddArg("-kafkaproxyhost=<ip>",_("afka proxy host"));
-    gArgs.AddArg("-kafkaproxyport=<port>",_("Kafka proxy port"));
-    gArgs.AddArg("-kafkatopic=<name>",("Kafka topic name"));
+    gArgs.AddArg("-kafka", _("Bitcoin support kafka"),false, OptionsCategory::RPC);
+    gArgs.AddArg("-kafkaproxyhost=<ip>",_("afka proxy host"),false, OptionsCategory::RPC);
+    gArgs.AddArg("-kafkaproxyport=<port>",_("Kafka proxy port"),false, OptionsCategory::RPC);
+    gArgs.AddArg("-kafkatopic=<name>",_("Kafka topic name"),false, OptionsCategory::RPC);
     // Hidden options
     gArgs.AddArg("-rpcssl", "", false, OptionsCategory::HIDDEN);
     gArgs.AddArg("-benchmark", "", false, OptionsCategory::HIDDEN);

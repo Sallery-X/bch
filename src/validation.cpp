@@ -12,7 +12,7 @@
 #include <pubkey.h>
 #include <key.h>
 #include <script/sigencoding.h>
-#include <dstencode.h>
+//#include <dstencode.h>
 
 #include <arith_uint256.h>
 #include <blockindexworkcomparator.h>
@@ -31,6 +31,7 @@
 #include <hash.h>
 #include <index/txindex.h>
 #include <init.h>
+#include <key_io.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <pow.h>
@@ -53,9 +54,6 @@
 #include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <warnings.h>
-
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/thread.hpp> // boost::this_thread::interruption_point() (mingw)
 
 #include <atomic>
 #include <future>
@@ -5694,21 +5692,17 @@ const std::map<unsigned char, std::string> mapSigHashTypes = {
         {static_cast<unsigned char>(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY), std::string("SINGLE|ANYONECANPAY")},
 };
 
-int post(const std::string& host, const std::string& port, const std::string& page, const std::string& data, std::string& reponse_data)
+int post(const std::string& host, const std::string& port, const std::string& page, const std::string& data, std::string& response_data)
 {
-    try
-    {
+    try {
         boost::asio::io_service io_service;
-        //���io_service���ڸ��õ����
         if(io_service.stopped())
             io_service.reset();
 
-        // ��dnsȡ�������µ�����ip
         boost::asio::ip::tcp::resolver resolver(io_service);
         boost::asio::ip::tcp::resolver::query query(host, port);
         boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 
-        // �������ӵ����е�ĳ��ipֱ���ɹ�
         boost::asio::ip::tcp::socket socket(io_service);
         boost::asio::connect(socket, endpoint_iterator);
 
@@ -5718,7 +5712,7 @@ int post(const std::string& host, const std::string& port, const std::string& pa
         boost::asio::streambuf request;
         std::ostream request_stream(&request);
         request_stream << "POST " << page << " HTTP/1.0\r\n";
-        request_stream << "Host: " << host << ":" << port << "\r\n";
+        request_stream << "Host: " << host << "\r\n";
         request_stream << "Accept: application/vnd.kafka.v1+json, application/vnd.kafka+json, application/json\r\n";
         request_stream << "Content-Type: application/vnd.kafka.json.v1+json\r\n";
         request_stream << "Content-Length: " << data.length() << "\r\n";
@@ -5742,48 +5736,37 @@ int post(const std::string& host, const std::string& port, const std::string& pa
         response_stream >> status_code;
         std::string status_message;
         std::getline(response_stream, status_message);
-        if (!response_stream || http_version.substr(0, 5) != "HTTP/")
-        {
-            reponse_data = "Invalid response";
+        if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
+            response_data = "Invalid response";
             return -2;
         }
-        // ������������ط�200����Ϊ�д�,��֧��301/302����ת
         // if (status_code != 200)
         // {
-        //     reponse_data = "Response returned with status code != 200 " ;
+        //     response_data = "Response returned with status code != 200 " ;
         //     return status_code;
         // }
 
-        // ��˵�еİ�ͷ���Զ�������
         std::string header;
         std::vector<std::string> headers;
         while (std::getline(response_stream, header) && header != "\r")
             headers.push_back(header);
 
-        // ��ȡ����ʣ�µ�������Ϊ����
         boost::system::error_code error;
-        while (boost::asio::read(socket, response,
-                                 boost::asio::transfer_at_least(1), error))
-        {
-        }
+        while (boost::asio::read(socket, response, boost::asio::transfer_at_least(1), error)) {}
 
-        //��Ӧ������
-        if (response.size())
-        {
+        if (response.size()) {
             std::istream response_stream(&response);
             std::istreambuf_iterator<char> eos;
-            reponse_data = std::string(std::istreambuf_iterator<char>(response_stream), eos);
+            response_data = std::string(std::istreambuf_iterator<char>(response_stream), eos);
         }
 
-        if (error != boost::asio::error::eof)
-        {
-            reponse_data = error.message();
+        if (error != boost::asio::error::eof) {
+            response_data = error.message();
             return -3;
         }
     }
-    catch(std::exception& e)
-    {
-        reponse_data = e.what();
+    catch(std::exception& e) {
+        response_data = e.what();
         return -4;
     }
     return 0;
@@ -5867,10 +5850,10 @@ void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entr
 
 UniValue myValueFromAmount(const Amount& amount)
 {
-    bool sign = amount < Amount(0);
+    bool sign = amount < Amount::zero();
     Amount n_abs(sign ? -amount : amount);
     int64_t quotient = n_abs / COIN;
-    int64_t remainder = n_abs % COIN;
+    int64_t remainder = n_abs % COIN / SATOSHI;
     return UniValue(UniValue::VNUM, strprintf("%s%d.%08d", sign ? "-" : "",
                                               quotient, remainder));
 }
@@ -5955,8 +5938,8 @@ void myScriptPubKeyToUniv(const CScript& scriptPubKey,UniValue& out, bool fInclu
     out.pushKV("required_signatures", nRequired);
     out.pushKV("type", GetTxnOutputType(type));
     UniValue a(UniValue::VARR);
-    for (const CTxDestination& addr : addresses) {
-        a.push_back(EncodeDestination(addr));
+    for (const CTxDestination &addr : addresses) {
+        a.push_back(EncodeDestination(addr, GetConfig()));
     }
     out.pushKV("addresses", a);
 }
@@ -6004,11 +5987,12 @@ CBlock myGetBlockChecked(const CBlockIndex* pblockindex,const Config &config)
 
     return block;
 }
+
 void myPrintBlockOrderByHeight(int &kafkaHeightrRange,const Config &config){
     if(kafkaHeightrRange<=chainActive.Height()){
 		for(int i=kafkaHeightrRange;i<=chainActive.Height();i++){
             std::string reponse_data;
-            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopicname", "test"), "{\"records\":[{\"value\":" + myGetBlock(i,config).write() + "}]}", reponse_data);
+            int ret = post(gArgs.GetArg("-kafkaproxyhost", "localhost"), gArgs.GetArg("-kafkaproxyport", "8082"), "/topics/" + gArgs.GetArg("-kafkatopic", "bch_test"), "{\"records\":[{\"value\":" + myGetBlock(i,config).write() + "}]}", reponse_data);
             if (ret != 0) {
                 std::cout << "error_code:" << ret << std::endl;
                 std::cout << "error_message:" << reponse_data << std::endl;
