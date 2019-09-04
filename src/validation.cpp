@@ -5808,7 +5808,7 @@ UniValue myBlockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool 
 
 void myTxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
 {
-    entry.push_back(Pair("txid", tx.GetId().GetHex()));
+    entry.push_back(Pair("tx_id", tx.GetId().GetHex()));
     entry.push_back(Pair("hash", tx.GetHash().GetHex()));
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
